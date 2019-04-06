@@ -30,14 +30,14 @@ public class HugeInteger {
         for(int index = 0; index < val.length(); index++){
             
             //Argument is invalid if there is a non digit character within argument
-            if(val.charAt(index) < '0' || val.charAt(index) > '9')
-                throw new RuntimeException("Invalid argument");
+//            if(val.charAt(index) < '0' || val.charAt(index) > '9')
+//                throw new RuntimeException("Invalid argument");
             
             //Once all beginning zeroes are encountered, store rest of string within value
-            else if(val.charAt(index) != '0' || index == val.length() - 1){
+//            else if(val.charAt(index) != '0' || index == val.length() - 1){
                 value = val.substring(index);
-                break; //end for lood
-            }
+//                break; //end for lood
+  //          }
             
         }
         
@@ -100,7 +100,7 @@ public class HugeInteger {
             HugeInteger longer, shorter;
         
             //determining greater and lesser integer
-            if(this.compareTo(h) == 1 || this.compareTo(h) == 0){
+            if((isPos == true && this.compareTo(h) == 1) || (isPos == false && compareTo(h) == -1)){
                 longer = this;
                 shorter = h;
             }
@@ -172,6 +172,7 @@ public class HugeInteger {
         
     }
     
+       
     public HugeInteger subtract(HugeInteger h){
         
         //Protocol when signs match
@@ -184,7 +185,8 @@ public class HugeInteger {
             if(this.compareTo(h) == 0) return new HugeInteger("0");
             
             //assignment when this is greater and positive
-            else if(this.compareTo(h) == 1 && isPos == true){
+            else if((
+                    this.compareTo(h) == 1 && isPos == true) || (isPos == false && compareTo(h) == -1)){
                 longer = this;
                 shorter = h;
                 rslt = new char[longer.value.length()];
@@ -235,6 +237,115 @@ public class HugeInteger {
         else if(isPos == true) return add(new HugeInteger(h.value)); //leverage add when h is negative and this is positive
         else return new HugeInteger("0").subtract(h.add(new HugeInteger(this.value))); //leverage add when this is negative and h is negative
         
+    }
+    
+    public HugeInteger multiply(HugeInteger h){
+        char[] rslt = new char[value.length() + h.value.length()]; //Allocation of memory for answer
+        int tempProd; //variable holding product of 2 digits at a given time
+        
+        for(int digit_h = h.value.length() - 1; digit_h >= 0; digit_h--){
+            for(int digit_this = value.length() - 1, backs = 0; digit_this >= 0; digit_this--, backs = 0){
+                
+                //If placeholder for product is null, make it '0'
+                if(rslt[digit_this + digit_h + 1] == 0)
+                    rslt[digit_this + digit_h + 1] = 48;
+                
+                //Storing product of digits and it to number in appropriate slot
+                tempProd = (value.charAt(digit_this) - 48) * (h.value.charAt(digit_h) - 48);
+                rslt[digit_this + digit_h + 1] = (char)(rslt[digit_this + digit_h + 1] + tempProd);
+                
+                //Carryover process when sum of number already present and tempProd exceeds 10
+                while(rslt[digit_this + digit_h + 1 - backs] - 48 > 9){
+                    rslt[digit_this + digit_h + 1 - backs - 1] = (char)((rslt[digit_this + digit_h + 1 - backs - 1] == 0 ? rslt[digit_this + digit_h + 1 - backs - 1] + 48 : rslt[digit_this + digit_h + 1 - backs - 1]) + (rslt[digit_this + digit_h + 1 - backs] - 48) / 10);
+                    rslt[digit_this + digit_h + 1 - backs] = (char)((rslt[digit_this + digit_h + 1 - backs] - 48) % 10 + 48);
+                    backs++;
+                    tempProd = 0;
+                }
+                
+                //Reducing digit in in appropriate slot to digit below 0
+                rslt[digit_this + digit_h + 1 - backs] = (char)((rslt[digit_this + digit_h + 1 - backs] - 48) % 10 + 48);
+            }
+        }
+        
+        //Ridding rslt array of all null slots
+        for(int index = 0; rslt[index] < 48; index++)
+            rslt[index] = 48;
+        
+        //return huge integer that is either positive or negative given  whether the signs of both factors are identical or not
+        return new HugeInteger(isPos == h.isPos ? new String(rslt) : "-" + new String(rslt));
+    }
+    
+    public HugeInteger divide(HugeInteger h) throws IllegalArgumentException{
+        
+        HugeInteger finalQuot, coeff, tempQuot;
+        int counter = 0, multiplier = 1;
+        
+        /*
+        finalQuot: the positive stand-in for h
+        coeff: coefficient that multiplies finalQuot for comparison to tempQuot
+        tempQuot: portion of this that is being compared to finalQuot * coeff
+        counter: stores the quotient
+        multiplier: amount to add to counter iteratively
+        */
+        
+        //Cases where no further computation is needed
+        if(h.compareTo(new HugeInteger("0")) == 0)
+            throw new IllegalArgumentException("Dividing by 0");
+        else if(value.compareTo(h.value) == 0)
+            return new HugeInteger("1");
+
+        //Assignment of finalQuot
+        finalQuot = new HugeInteger(h.value);
+        
+        for(int iter = 0; iter < this.value.length() - h.value.length(); iter++)
+            multiplier *= 10;
+
+        //Try initializing tempQuot. Therefore, return 0
+        try{
+            tempQuot = new HugeInteger(this.value.substring(0,h.value.length()));
+        }
+        catch(Exception e){
+            return new HugeInteger("0");
+        }
+        
+        for(int iter = 0; iter < this.value.length() - h.value.length() + 1; iter++){
+            coeff = new HugeInteger("1");
+            boolean isGreater = false; //helps determine whether tempQuot was greater than finalQuot
+            
+            //Determining what amount to add to counter
+            while(tempQuot.compareTo(finalQuot.multiply(coeff)) != -1){
+                isGreater = true;
+                coeff = coeff.add(new HugeInteger("1"));
+                counter += multiplier;
+            }
+            
+            multiplier /= 10; //reduce order of magnitude to be added to counter
+            
+            //if tempQuot > finalQuot, tempQuot becomes 10*(tempQuot - coeff*finalQuot) + the next digit in this
+            if(isGreater){
+                coeff = coeff.subtract(new HugeInteger("1"));
+                try{
+                    tempQuot = new HugeInteger(tempQuot.subtract(finalQuot.multiply(coeff)).value + this.value.charAt(h.value.length() + iter));
+                }
+                catch(Exception e){
+                    tempQuot = tempQuot;
+                }
+            }
+            
+            //otherwiae, tempQuot becomes 10*tempQuot + the next digit in this
+            else{
+                try{
+                    tempQuot = new HugeInteger(tempQuot.value + this.value.charAt(h.value.length() + iter));
+                }
+                catch(Exception e){
+                    tempQuot = tempQuot;
+                }
+            } 
+            
+        }
+        
+        //return huge integer that is either positive or negative given  whether the signs of both factors are identical or not
+        return new HugeInteger(isPos == h.isPos ? "" + counter : "-" + counter);
     }
     
     public String toString(){
